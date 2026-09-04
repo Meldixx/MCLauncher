@@ -27,7 +27,6 @@ InstallDir "$PROGRAMFILES64\MCLauncher"
 InstallDirRegKey HKLM "${UNINSTALL_KEY}" "InstallLocation"
 RequestExecutionLevel admin
 SetCompressor /SOLID lzma
-SetRegView 64
 Icon "${APP_ICON}"
 UninstallIcon "${APP_ICON}"
 BrandingText "MCLauncher by TrioSoft · triosoft.xyz"
@@ -57,8 +56,17 @@ VIAddVersionKey /LANG=1049 "LegalCopyright" "Copyright © 2026 TrioSoft / MELDIX
 !insertmacro MUI_LANGUAGE "Russian"
 !insertmacro MUI_LANGUAGE "English"
 
+Function .onInit
+  SetRegView 64
+FunctionEnd
+
+Function un.onInit
+  SetRegView 64
+FunctionEnd
+
 Section "MCLauncher" SEC_MAIN
   SectionIn RO
+  SetRegView 64
   SetOutPath "$INSTDIR"
   File /r "${SOURCE_DIR}\*.*"
 
@@ -88,6 +96,7 @@ Section "MCLauncher" SEC_MAIN
 SectionEnd
 
 Section "Uninstall"
+  SetRegView 64
   Delete "$DESKTOP\MCLauncher.lnk"
   Delete "$SMPROGRAMS\MCLauncher\MCLauncher.lnk"
   Delete "$SMPROGRAMS\MCLauncher\Удалить MCLauncher.lnk"

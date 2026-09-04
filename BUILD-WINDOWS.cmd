@@ -25,6 +25,14 @@ if errorlevel 1 (
 )
 
 :nsis_ok
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0make-installer-art.ps1"
+if not "%ERRORLEVEL%"=="0" (
+  echo.
+  echo [ERROR] Could not prepare MCLauncher installer artwork.
+  pause
+  exit /b 1
+)
+
 powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0build-windows.ps1"
 set EXITCODE=%ERRORLEVEL%
 echo.

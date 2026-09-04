@@ -42,11 +42,9 @@ jobs:
 
       - name: Prepare MCLauncher source
         shell: pwsh
-        run: .\prepare.ps1
-
-      - name: Apply MCLauncher UI fixes
-        shell: powershell
-        run: .\apply-ui-fixes.ps1
+        run: |
+          .\prepare.ps1
+          .\apply-ui-fixes.ps1
 
       - name: Create corresponding-source archive
         shell: pwsh
@@ -92,6 +90,7 @@ jobs:
             SOURCE-BASE.txt
             prepare.ps1
             apply-ui-fixes.ps1
+            polish-release.ps1
             make-installer-art.ps1
             build-windows.ps1
             START.cmd
@@ -99,6 +98,7 @@ jobs:
             MCLauncher-Installer.nsi
             TrioSoftIdDialog.h
             TrioSoftIdDialog.cpp
+            TrioSoftTheme.h
             assets/mclauncher-logo.*.part
 
       - name: Publish GitHub Release

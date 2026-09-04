@@ -2,6 +2,9 @@ name: Windows Release
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - main
   push:
     tags:
       - 'v*'
@@ -41,6 +44,16 @@ jobs:
         shell: pwsh
         run: .\prepare.ps1
 
+      - name: Create corresponding-source archive
+        shell: pwsh
+        run: |
+          $source = Join-Path $PWD 'MCLauncher-source'
+          $archive = Join-Path $PWD 'MCLauncher-v1.0.0-source.zip'
+          if (-not (Test-Path -LiteralPath $source -PathType Container)) { throw 'Prepared source directory was not created.' }
+          if (Test-Path -LiteralPath $archive) { Remove-Item -LiteralPath $archive -Force }
+          $items = Get-ChildItem -LiteralPath $source -Force | Where-Object { $_.Name -ne '.git' }
+          Compress-Archive -Path $items.FullName -DestinationPath $archive -CompressionLevel Optimal
+
       - name: Build installer
         shell: pwsh
         run: .\build-windows.ps1
@@ -52,7 +65,14 @@ jobs:
           path: MCLauncher-v1.0.0.exe
           if-no-files-found: error
 
-      - name: Upload corresponding-source build kit
+      - name: Upload corresponding source
+        uses: actions/upload-artifact@v4
+        with:
+          name: MCLauncher-v1.0.0-source
+          path: MCLauncher-v1.0.0-source.zip
+          if-no-files-found: error
+
+      - name: Upload reproducible build kit
         uses: actions/upload-artifact@v4
         with:
           name: MCLauncher-v1.0.0-source-kit
@@ -69,5 +89,4 @@ jobs:
             MCLauncher-Installer.nsi
             TrioSoftIdDialog.h
             TrioSoftIdDialog.cpp
-            mclauncher.svg
             assets/mclauncher-logo.*.part

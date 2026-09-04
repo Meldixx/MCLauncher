@@ -42,7 +42,9 @@ jobs:
 
       - name: Prepare MCLauncher source
         shell: pwsh
-        run: .\prepare.ps1
+        run: |
+          .\prepare.ps1
+          .\polish-release.ps1
 
       - name: Create corresponding-source archive
         shell: pwsh
@@ -53,6 +55,10 @@ jobs:
           if (Test-Path -LiteralPath $archive) { Remove-Item -LiteralPath $archive -Force }
           $items = Get-ChildItem -LiteralPath $source -Force | Where-Object { $_.Name -ne '.git' }
           Compress-Archive -Path $items.FullName -DestinationPath $archive -CompressionLevel Optimal
+
+      - name: Prepare installer artwork
+        shell: pwsh
+        run: .\make-installer-art.ps1
 
       - name: Build installer
         shell: pwsh
@@ -83,6 +89,8 @@ jobs:
             NOTICE.txt
             SOURCE-BASE.txt
             prepare.ps1
+            polish-release.ps1
+            make-installer-art.ps1
             build-windows.ps1
             START.cmd
             BUILD-WINDOWS.cmd

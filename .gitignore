@@ -3,4 +3,9 @@ MCLauncher-source-backup-*/
 MCLauncher/
 .tools/
 MCLauncher-v1.0.0.exe
+mclauncher-256.png
+mclauncher.ico
+mclauncher.svg
+mclauncher-welcome.bmp
+mclauncher-header.bmp
 *.log

@@ -18,8 +18,6 @@ function New-McFont {
         [Parameter(Mandatory=$true)][System.Drawing.FontStyle]$Style
     )
 
-    # Be explicit about all constructor argument types. Windows PowerShell 5.1
-    # can otherwise report an ambiguous Font constructor overload.
     return [System.Drawing.Font]::new(
         [string]'Segoe UI',
         [single]$Size,
@@ -36,29 +34,29 @@ function New-WelcomeBitmap {
     try {
         $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
         $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-        $graphics.Clear([System.Drawing.Color]::FromArgb(5, 12, 10))
+        $graphics.Clear([System.Drawing.Color]::FromArgb(0, 0, 0))
 
         $rect = [System.Drawing.Rectangle]::new(0, 0, 164, 314)
         $gradient = [System.Drawing.Drawing2D.LinearGradientBrush]::new(
             $rect,
-            [System.Drawing.Color]::FromArgb(6, 14, 12),
-            [System.Drawing.Color]::FromArgb(8, 32, 24),
+            [System.Drawing.Color]::FromArgb(4, 5, 8),
+            [System.Drawing.Color]::FromArgb(14, 18, 34),
             [single]90.0
         )
         try { $graphics.FillRectangle($gradient, $rect) } finally { $gradient.Dispose() }
 
-        $glow = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(34, 32, 235, 157))
-        try { $graphics.FillEllipse($glow, -28, 36, 220, 220) } finally { $glow.Dispose() }
+        $glow = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(46, 10, 120, 238))
+        try { $graphics.FillEllipse($glow, -28, 32, 220, 220) } finally { $glow.Dispose() }
 
         $graphics.DrawImage($Logo, 16, 56, 132, 132)
 
-        $accent = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(39, 235, 158))
+        $accent = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(10, 120, 238))
         try { $graphics.FillRectangle($accent, 18, 230, 128, 4) } finally { $accent.Dispose() }
 
         $titleFont = New-McFont -Size 18 -Style ([System.Drawing.FontStyle]::Bold)
         $smallFont = New-McFont -Size 12 -Style ([System.Drawing.FontStyle]::Regular)
-        $white = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(239, 255, 248))
-        $muted = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(125, 191, 166))
+        $white = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(242, 244, 248))
+        $muted = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(162, 166, 176))
         try {
             $graphics.DrawString('MCLauncher', $titleFont, $white, [single]18, [single]246)
             $graphics.DrawString('by TrioSoft', $smallFont, $muted, [single]18, [single]274)
@@ -84,13 +82,13 @@ function New-HeaderBitmap {
     try {
         $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
         $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-        $graphics.Clear([System.Drawing.Color]::FromArgb(6, 15, 12))
+        $graphics.Clear([System.Drawing.Color]::FromArgb(0, 0, 0))
 
         $rect = [System.Drawing.Rectangle]::new(0, 0, 150, 57)
         $gradient = [System.Drawing.Drawing2D.LinearGradientBrush]::new(
             $rect,
-            [System.Drawing.Color]::FromArgb(6, 15, 12),
-            [System.Drawing.Color]::FromArgb(12, 45, 33),
+            [System.Drawing.Color]::FromArgb(5, 6, 9),
+            [System.Drawing.Color]::FromArgb(20, 24, 44),
             [single]0.0
         )
         try { $graphics.FillRectangle($gradient, $rect) } finally { $gradient.Dispose() }
@@ -99,16 +97,16 @@ function New-HeaderBitmap {
 
         $titleFont = New-McFont -Size 13 -Style ([System.Drawing.FontStyle]::Bold)
         $smallFont = New-McFont -Size 10 -Style ([System.Drawing.FontStyle]::Regular)
-        $white = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(240, 255, 249))
-        $green = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(45, 238, 163))
+        $white = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(242, 244, 248))
+        $accent2 = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(107, 104, 245))
         try {
             $graphics.DrawString('MCLauncher', $titleFont, $white, [single]8, [single]9)
-            $graphics.DrawString('TrioSoft', $smallFont, $green, [single]8, [single]30)
+            $graphics.DrawString('TrioSoft', $smallFont, $accent2, [single]8, [single]30)
         } finally {
             $titleFont.Dispose()
             $smallFont.Dispose()
             $white.Dispose()
-            $green.Dispose()
+            $accent2.Dispose()
         }
 
         $bitmap.Save($HeaderPath, [System.Drawing.Imaging.ImageFormat]::Bmp)

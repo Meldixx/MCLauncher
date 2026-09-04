@@ -1,0 +1,92 @@
+name: Windows Release
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'microsoft'
+          java-version: '17'
+
+      - name: Install Qt 6
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.10.3'
+          arch: 'win64_msvc2022_64'
+          modules: 'qtnetworkauth qtimageformats'
+          cache: true
+
+      - name: Prepare vcpkg
+        shell: pwsh
+        run: |
+          if (-not $env:VCPKG_INSTALLATION_ROOT) { throw 'VCPKG_INSTALLATION_ROOT is unavailable on the runner.' }
+          $env:VCPKG_ROOT = $env:VCPKG_INSTALLATION_ROOT
+          "VCPKG_ROOT=$env:VCPKG_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat" -disableMetrics
+
+      - name: Prepare MCLauncher source
+        shell: pwsh
+        run: .\prepare.ps1
+
+      - name: Create corresponding-source archive
+        shell: pwsh
+        run: |
+          $source = Join-Path $PWD 'MCLauncher-source'
+          $archive = Join-Path $PWD 'MCLauncher-v1.0.0-source.zip'
+          if (-not (Test-Path -LiteralPath $source -PathType Container)) { throw 'Prepared source directory was not created.' }
+          if (Test-Path -LiteralPath $archive) { Remove-Item -LiteralPath $archive -Force }
+          $items = Get-ChildItem -LiteralPath $source -Force | Where-Object { $_.Name -ne '.git' }
+          Compress-Archive -Path $items.FullName -DestinationPath $archive -CompressionLevel Optimal
+
+      - name: Build installer
+        shell: pwsh
+        run: .\build-windows.ps1
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MCLauncher-v1.0.0
+          path: MCLauncher-v1.0.0.exe
+          if-no-files-found: error
+
+      - name: Upload corresponding source
+        uses: actions/upload-artifact@v4
+        with:
+          name: MCLauncher-v1.0.0-source
+          path: MCLauncher-v1.0.0-source.zip
+          if-no-files-found: error
+
+      - name: Upload reproducible build kit
+        uses: actions/upload-artifact@v4
+        with:
+          name: MCLauncher-v1.0.0-source-kit
+          path: |
+            README.md
+            LICENSE
+            LICENSE.txt
+            NOTICE.txt
+            SOURCE-BASE.txt
+            prepare.ps1
+            build-windows.ps1
+            START.cmd
+            BUILD-WINDOWS.cmd
+            MCLauncher-Installer.nsi
+            TrioSoftIdDialog.h
+            TrioSoftIdDialog.cpp
+            assets/mclauncher-logo.*.part

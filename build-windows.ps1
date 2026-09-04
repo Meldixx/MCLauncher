@@ -83,10 +83,23 @@ function Find-MakeNSIS {
     $cmd = Get-Command 'makensis.exe' -ErrorAction SilentlyContinue
     if ($cmd) { return $cmd.Source }
     foreach ($candidate in @(
+        (Join-Path $Root '.tools\nsis-3.12\makensis.exe'),
         'C:\Program Files (x86)\NSIS\makensis.exe',
         'C:\Program Files\NSIS\makensis.exe'
     )) { if (Test-Path -LiteralPath $candidate -PathType Leaf) { return $candidate } }
     return $null
+}
+
+function Test-PortableExecutable([string]$Path) {
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $false }
+    try {
+        $info = Get-Item -LiteralPath $Path
+        if ($info.Length -lt 500000) { return $false }
+        $stream = [System.IO.File]::OpenRead($Path)
+        try {
+            return ($stream.ReadByte() -eq 0x4D -and $stream.ReadByte() -eq 0x5A)
+        } finally { $stream.Dispose() }
+    } catch { return $false }
 }
 
 function Ensure-MakeNSIS {
@@ -94,24 +107,58 @@ function Ensure-MakeNSIS {
     if ($existing) { return $existing }
 
     $tools = Join-Path $Root '.tools'
-    $archive = Join-Path $tools 'nsis-3.12.zip'
+    $setup = Join-Path $tools 'nsis-3.12-setup.exe'
     $extract = Join-Path $tools 'nsis-3.12'
+    $oldArchive = Join-Path $tools 'nsis-3.12.zip'
     New-Item -ItemType Directory -Path $tools -Force | Out-Null
 
-    if (-not (Test-Path -LiteralPath $archive -PathType Leaf)) {
-        Write-Host '==> Downloading portable NSIS 3.12 for the installer' -ForegroundColor Cyan
-        Invoke-WebRequest -UseBasicParsing -Uri 'https://downloads.sourceforge.net/project/nsis/NSIS%203/3.12/nsis-3.12.zip' -OutFile $archive
+    # Older MCLauncher builds downloaded the SourceForge ZIP directly. Some mirrors
+    # occasionally return a partial/HTML response, which makes Expand-Archive fail
+    # with "End of Central Directory record could not be found". Remove that cache.
+    if (Test-Path -LiteralPath $oldArchive -PathType Leaf) {
+        Remove-Item -LiteralPath $oldArchive -Force -ErrorAction SilentlyContinue
     }
-    if (-not (Test-Path -LiteralPath $extract -PathType Container)) {
-        Expand-Archive -LiteralPath $archive -DestinationPath $tools -Force
-        $unpacked = Get-ChildItem -LiteralPath $tools -Directory | Where-Object { $_.Name -like 'nsis-3.12*' } | Sort-Object Name | Select-Object -First 1
-        if ($unpacked -and $unpacked.FullName -ne $extract) {
-            if (Test-Path -LiteralPath $extract) { Remove-Item -LiteralPath $extract -Recurse -Force }
-            Move-Item -LiteralPath $unpacked.FullName -Destination $extract
+
+    $localMakensis = Join-Path $extract 'makensis.exe'
+    if (Test-Path -LiteralPath $localMakensis -PathType Leaf) { return $localMakensis }
+
+    if (-not (Test-PortableExecutable $setup)) {
+        if (Test-Path -LiteralPath $setup) { Remove-Item -LiteralPath $setup -Force }
+        Write-Host '==> Downloading official NSIS 3.12 installer' -ForegroundColor Cyan
+        $downloadUrls = @(
+            'https://sourceforge.net/projects/nsis/files/NSIS%203/3.12/nsis-3.12-setup.exe/download',
+            'https://downloads.sourceforge.net/project/nsis/NSIS%203/3.12/nsis-3.12-setup.exe'
+        )
+        $downloaded = $false
+        foreach ($url in $downloadUrls) {
+            try {
+                Invoke-WebRequest -UseBasicParsing -MaximumRedirection 10 -Uri $url -OutFile $setup
+                if (Test-PortableExecutable $setup) {
+                    $downloaded = $true
+                    break
+                }
+            } catch {
+                Write-Host "NSIS download attempt failed: $($_.Exception.Message)" -ForegroundColor Yellow
+            }
+            if (Test-Path -LiteralPath $setup) { Remove-Item -LiteralPath $setup -Force -ErrorAction SilentlyContinue }
+        }
+        if (-not $downloaded) {
+            throw 'Could not download a valid NSIS 3.12 installer. Install NSIS manually from https://nsis.sourceforge.io/Download and run BUILD-WINDOWS.cmd again.'
         }
     }
+
+    Write-Host '==> Installing a local copy of NSIS 3.12 for this build' -ForegroundColor Cyan
+    if (Test-Path -LiteralPath $extract) { Remove-Item -LiteralPath $extract -Recurse -Force }
+    $nsisArgs = @('/S', "/D=$extract")
+    $process = Start-Process -FilePath $setup -ArgumentList $nsisArgs -Wait -PassThru
+    if ($process.ExitCode -ne 0) { throw "NSIS setup failed with exit code $($process.ExitCode)" }
+
     $exe = Get-ChildItem -LiteralPath $extract -Filter makensis.exe -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 1
-    if (-not $exe) { throw 'Portable NSIS was downloaded but makensis.exe was not found.' }
+    if (-not $exe) {
+        $systemNsis = Find-MakeNSIS
+        if ($systemNsis) { return $systemNsis }
+        throw 'NSIS setup finished, but makensis.exe was not found. Install NSIS manually from https://nsis.sourceforge.io/Download and run BUILD-WINDOWS.cmd again.'
+    }
     return $exe.FullName
 }
 

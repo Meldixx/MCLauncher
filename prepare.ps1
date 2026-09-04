@@ -37,6 +37,13 @@ function Restore-BrandingAssets {
     $icoPath = Join-Path $PackageRoot 'mclauncher.ico'
     $svgPath = Join-Path $PackageRoot 'mclauncher.svg'
     $compactSource = Join-Path $PackageRoot 'assets\mclauncher-logo.b64'
+    if (-not (Test-Path -LiteralPath $compactSource -PathType Leaf)) {
+        $parts = @(Get-ChildItem -Path (Join-Path $PackageRoot 'assets\mclauncher-logo.*.part') -File -ErrorAction SilentlyContinue | Sort-Object Name)
+        if ($parts.Count -gt 0) {
+            $joined = ($parts | ForEach-Object { [System.IO.File]::ReadAllText($_.FullName).Trim() }) -join ''
+            Write-Utf8NoBom $compactSource $joined
+        }
+    }
 
     # GitHub keeps a compact 128px PNG source. The downloadable build kit may
     # additionally contain the full-resolution user-supplied logo/ICO.

@@ -1,0 +1,7 @@
+MCLauncher 1.0.0 source base
+
+Upstream repository: https://github.com/ElyPrismLauncher/Launcher
+Pinned upstream commit: 5ea65f7a8057f06382845b870a378e8b35e62559
+MCLauncher repository: https://github.com/Meldixx/MCLauncher
+
+Run START.cmd to obtain that exact upstream revision and apply the MCLauncher/TrioSoft modifications from prepare.ps1.

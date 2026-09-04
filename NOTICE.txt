@@ -1,0 +1,19 @@
+MCLauncher v1.0.0
+Modified derivative prepared 2026-09-04 by TrioSoft / MELDIX.
+
+Product website: https://triosoft.xyz
+Upstream: ElyPrismLauncher / PineconeMC
+https://github.com/ElyPrismLauncher/Launcher
+
+Lineage: PineconeMC / ElyPrismLauncher -> Prism Launcher -> PolyMC -> MultiMC.
+Launcher code license: GNU GPL-3.0-only.
+
+MCLauncher is not endorsed by or affiliated with Prism Launcher, Ely.by, Mojang or Microsoft.
+Upstream API credentials are intentionally not redistributed as credentials for this fork.
+Corresponding source for every public binary release must remain available under GPL-3.0-only.
+
+Official source repository:
+https://github.com/Meldixx/MCLauncher
+
+Pinned ElyPrismLauncher upstream commit for MCLauncher 1.0.0:
+5ea65f7a8057f06382845b870a378e8b35e62559

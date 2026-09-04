@@ -32,16 +32,56 @@ function Replace-RegexInFile([string]$Path, [array]$Rules) {
     if ($text -ne $original) { Write-Utf8NoBom $Path $text }
 }
 
-function Restore-Base64Asset([string]$FileName) {
-    $dest = Join-Path $PackageRoot $FileName
-    if (Test-Path -LiteralPath $dest -PathType Leaf) { return }
-    $encoded = Join-Path $PackageRoot ("assets\" + $FileName + '.b64')
-    if (-not (Test-Path -LiteralPath $encoded -PathType Leaf)) { throw "Required branding asset is missing: $FileName" }
-    [System.IO.File]::WriteAllBytes($dest, [Convert]::FromBase64String([System.IO.File]::ReadAllText($encoded).Trim()))
+function Restore-BrandingAssets {
+    $pngPath = Join-Path $PackageRoot 'mclauncher-256.png'
+    $icoPath = Join-Path $PackageRoot 'mclauncher.ico'
+    $svgPath = Join-Path $PackageRoot 'mclauncher.svg'
+    $compactSource = Join-Path $PackageRoot 'assets\mclauncher-logo.b64'
+
+    # GitHub keeps a compact 128px PNG source. The downloadable build kit may
+    # additionally contain the full-resolution user-supplied logo/ICO.
+    if (-not (Test-Path -LiteralPath $pngPath -PathType Leaf)) {
+        if (-not (Test-Path -LiteralPath $compactSource -PathType Leaf)) {
+            throw 'Required MCLauncher branding source is missing: assets\mclauncher-logo.b64'
+        }
+        [System.IO.File]::WriteAllBytes($pngPath, [Convert]::FromBase64String([System.IO.File]::ReadAllText($compactSource).Trim()))
+    }
+
+    if (-not (Test-Path -LiteralPath $icoPath -PathType Leaf)) {
+        # A modern ICO can contain a PNG payload. Build a one-image ICO around
+        # the PNG so Windows resources and NSIS have a deterministic icon.
+        $pngBytes = [System.IO.File]::ReadAllBytes($pngPath)
+        $stream = New-Object System.IO.MemoryStream
+        $writer = New-Object System.IO.BinaryWriter($stream)
+        try {
+            $writer.Write([UInt16]0) # reserved
+            $writer.Write([UInt16]1) # type = icon
+            $writer.Write([UInt16]1) # image count
+            $writer.Write([Byte]128) # width
+            $writer.Write([Byte]128) # height
+            $writer.Write([Byte]0)   # palette
+            $writer.Write([Byte]0)   # reserved
+            $writer.Write([UInt16]1) # planes
+            $writer.Write([UInt16]32) # bpp
+            $writer.Write([UInt32]$pngBytes.Length)
+            $writer.Write([UInt32]22) # payload offset (6 + 16)
+            $writer.Write($pngBytes)
+            $writer.Flush()
+            [System.IO.File]::WriteAllBytes($icoPath, $stream.ToArray())
+        } finally {
+            $writer.Dispose()
+            $stream.Dispose()
+        }
+    }
+
+    if (-not (Test-Path -LiteralPath $svgPath -PathType Leaf)) {
+        $pngB64 = [Convert]::ToBase64String([System.IO.File]::ReadAllBytes($pngPath))
+        $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256"><image width="256" height="256" href="data:image/png;base64,' + $pngB64 + '"/></svg>'
+        Write-Utf8NoBom $svgPath $svg
+    }
 }
 
-Restore-Base64Asset 'mclauncher.ico'
-Restore-Base64Asset 'mclauncher-256.png'
+Restore-BrandingAssets
 
 Write-Step 'Checking Git'
 Require-Command 'git.exe' 'Install Git for Windows from https://git-scm.com/download/win'

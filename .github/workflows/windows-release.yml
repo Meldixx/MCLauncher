@@ -70,4 +70,4 @@ jobs:
             TrioSoftIdDialog.h
             TrioSoftIdDialog.cpp
             mclauncher.svg
-            assets/mclauncher-logo.b64
+            assets/mclauncher-logo.*.part

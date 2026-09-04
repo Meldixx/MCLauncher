@@ -2,11 +2,12 @@
 setlocal
 cd /d "%~dp0"
 title MCLauncher 1.0.0 - Source preparation
+
 powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0prepare.ps1"
 set EXITCODE=%ERRORLEVEL%
 if not "%EXITCODE%"=="0" goto :failed
 
-powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0polish-release.ps1"
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0apply-ui-fixes.ps1"
 set EXITCODE=%ERRORLEVEL%
 if not "%EXITCODE%"=="0" goto :failed
 

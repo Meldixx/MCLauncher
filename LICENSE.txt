@@ -1,0 +1,6 @@
+MCLauncher is distributed under GNU GPL-3.0-only because it is a modified derivative of the GPL-3.0-only upstream launcher.
+
+The complete GPL-3.0-only license is included as LICENSE in this repository and in the source tree downloaded by START.cmd.
+Official license text: https://www.gnu.org/licenses/gpl-3.0.txt
+
+When distributing MCLauncher binaries, make the corresponding source available under the same license and preserve required notices.

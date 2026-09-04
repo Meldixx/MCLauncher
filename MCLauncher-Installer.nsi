@@ -1,3 +1,4 @@
+!pragma codepage 65001
 Unicode true
 !include "MUI2.nsh"
 !include "x64.nsh"
@@ -14,6 +15,12 @@ Unicode true
 !ifndef APP_ICON
   !define APP_ICON "mclauncher.ico"
 !endif
+!ifndef WELCOME_BITMAP
+  !define WELCOME_BITMAP "mclauncher-welcome.bmp"
+!endif
+!ifndef HEADER_BITMAP
+  !define HEADER_BITMAP "mclauncher-header.bmp"
+!endif
 
 !define APP_NAME "MCLauncher"
 !define APP_PUBLISHER "TrioSoft"
@@ -29,21 +36,38 @@ RequestExecutionLevel admin
 SetCompressor /SOLID lzma
 Icon "${APP_ICON}"
 UninstallIcon "${APP_ICON}"
-BrandingText "MCLauncher by TrioSoft · triosoft.xyz"
+BrandingText "MCLauncher by TrioSoft | triosoft.xyz"
 
 VIProductVersion "1.0.0.0"
 VIAddVersionKey /LANG=1049 "ProductName" "MCLauncher"
 VIAddVersionKey /LANG=1049 "ProductVersion" "${APP_VERSION}"
 VIAddVersionKey /LANG=1049 "CompanyName" "TrioSoft"
 VIAddVersionKey /LANG=1049 "FileDescription" "MCLauncher Setup"
-VIAddVersionKey /LANG=1049 "LegalCopyright" "Copyright © 2026 TrioSoft / MELDIX"
+VIAddVersionKey /LANG=1049 "LegalCopyright" "Copyright (c) 2026 TrioSoft / MELDIX"
 
 !define MUI_ICON "${APP_ICON}"
 !define MUI_UNICON "${APP_ICON}"
 !define MUI_ABORTWARNING
+!define MUI_WELCOMEFINISHPAGE_BITMAP "${WELCOME_BITMAP}"
+!define MUI_HEADERIMAGE
+!define MUI_HEADERIMAGE_RIGHT
+!define MUI_HEADERIMAGE_BITMAP "${HEADER_BITMAP}"
+!define MUI_WELCOMEPAGE_TITLE "MCLauncher ${APP_VERSION}"
+!define MUI_WELCOMEPAGE_TEXT "Minecraft launcher от TrioSoft.$\r$\n$\r$\nУстановщик подготовит MCLauncher, ярлыки и все необходимые файлы. Исходный код распространяется отдельно в официальном GitHub-репозитории."
+!define MUI_FINISHPAGE_TITLE "MCLauncher ${APP_VERSION} установлен"
+!define MUI_FINISHPAGE_TEXT "Готово. MCLauncher установлен и готов к запуску."
 !define MUI_FINISHPAGE_RUN "$INSTDIR\${APP_EXE}"
+!define MUI_FINISHPAGE_RUN_TEXT "Запустить MCLauncher"
 !define MUI_FINISHPAGE_LINK "Открыть сайт TrioSoft"
 !define MUI_FINISHPAGE_LINK_LOCATION "${APP_WEBSITE}"
+
+Function .onInit
+  SetRegView 64
+FunctionEnd
+
+Function un.onInit
+  SetRegView 64
+FunctionEnd
 
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY
@@ -55,14 +79,6 @@ VIAddVersionKey /LANG=1049 "LegalCopyright" "Copyright © 2026 TrioSoft / MELDIX
 
 !insertmacro MUI_LANGUAGE "Russian"
 !insertmacro MUI_LANGUAGE "English"
-
-Function .onInit
-  SetRegView 64
-FunctionEnd
-
-Function un.onInit
-  SetRegView 64
-FunctionEnd
 
 Section "MCLauncher" SEC_MAIN
   SectionIn RO

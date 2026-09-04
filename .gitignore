@@ -1,0 +1,6 @@
+MCLauncher-source/
+MCLauncher-source-backup-*/
+MCLauncher/
+.tools/
+MCLauncher-v1.0.0.exe
+*.log

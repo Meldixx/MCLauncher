@@ -28,6 +28,8 @@
 
 Зависимости: Git, CMake, Ninja, vcpkg, Visual Studio Build Tools 2022 C++, Qt 6 MSVC x64 и JDK 17. Если NSIS не установлен, build-скрипт сам скачает portable NSIS 3.12.
 
+GitHub Actions запускается для pull request в `main`, ручного запуска и тегов `v*`. CI публикует три артефакта: установщик, полный подготовленный corresponding-source архив и воспроизводимый build kit.
+
 ## TrioSoft ID
 
 Лаунчер использует Public OAuth Device Flow Client ID `tsc_mclauncher_windows_v100`. Секрет в приложение не вшивается и не нужен. Для серверной стороны используется TrioSoft App Hub 16.5.34+.

@@ -1,0 +1,85 @@
+name: TikTok Mod v0.2.0
+on:
+  push:
+    branches:
+      - tiktok-mod-v0.2.0-build
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Clone and port patches
+        shell: bash
+        run: |
+          git clone --depth 1 https://github.com/icysymmetra/tiktok-patches-for-morphe.git modsrc
+          cd modsrc
+          chmod +x gradlew
+          python3 - <<'PY'
+          from pathlib import Path
+          exts={'.kt','.kts','.java','.json','.md','.properties','.toml','.txt'}
+          for p in Path('.').rglob('*'):
+              if not p.is_file() or p.suffix.lower() not in exts: continue
+              try: s=p.read_text(encoding='utf-8')
+              except UnicodeDecodeError: continue
+              n=s.replace('46.2.3','46.9.42')
+              n=n.replace('Metra TikTok Patches','TikTok Mod Patches')
+              n=n.replace('Metra patches settings menu','TikTok Mod settings menu')
+              if n!=s: p.write_text(n,encoding='utf-8')
+          gp=Path('gradle.properties')
+          s=gp.read_text(encoding='utf-8')
+          gp.write_text('\n'.join('version = 0.2.0' if x.strip().startswith('version =') else x for x in s.splitlines())+'\n',encoding='utf-8')
+          compat=Path('patches/src/main/kotlin/app/morphe/patches/shared/compat/AppCompatibilities.kt').read_text(encoding='utf-8')
+          assert 'AppTarget("46.9.42")' in compat
+          PY
+      - name: Build
+        run: |
+          cd modsrc
+          ./gradlew :patches:buildAndroid :patches:generatePatchesList --no-daemon --stacktrace
+      - name: Package
+        shell: bash
+        run: |
+          cd modsrc
+          mkdir -p package
+          cat > package/BUILD-INFO.txt <<'EOF'
+          TikTok Mod v0.2.0
+          Target TikTok: 46.9.42
+          Package: com.zhiliaoapp.musically
+          Patch engine: Morphe
+
+          Ported patch families:
+          - Settings
+          - Feed filter (ads/LIVE/Stories/Shop/photo filtering where fingerprints match)
+          - Downloads
+          - Playback speed + remember speed
+          - Show seekbar / thumbnail
+          - Always show publish date
+          - Resume after scrolling
+          - Stop video looping
+          - Sanitize sharing links
+          - SIM spoof presets
+          - Navigation/promotional UI controls
+          - External links and interaction patches
+
+          Fingerprints are validated at patch time. No TikTok APK is redistributed in this archive.
+          Upstream GPLv3 notices are retained.
+          EOF
+          cp LICENSE NOTICE README.md patches-list.json package/ 2>/dev/null || true
+          find patches/build/libs -maxdepth 1 -type f \( -name '*.mpp' -o -name '*.jar' \) -exec cp {} package/ \;
+          cd package
+          zip -9 -r ../../TikTok-Mod-v0.2.0.zip .
+          cd ../..
+          test -s TikTok-Mod-v0.2.0.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TikTok-Mod-v0.2.0
+          path: modsrc/../TikTok-Mod-v0.2.0.zip
+          if-no-files-found: error
+          retention-days: 7

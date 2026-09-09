@@ -8,25 +8,37 @@ set "MOD_VERSION=0.2.0"
 set "TARGET_VERSION=46.9.42"
 set "OUTPUT=TikTok-Mod-v0.2.0.apk"
 set "RUNTIME=%~dp0TikTok-Mod-Runtime"
+set "JRE=%RUNTIME%\jre21"
+set "JAVA_EXE=%JRE%\bin\java.exe"
 set "MORPHE=%RUNTIME%\morphe-desktop-1.15.0-all.jar"
 set "PATCHES=%RUNTIME%\patches-0.7.0.mpp"
-set "MORPHE_SHA=727e3744aa5c0006474590de6f4041bd55edc59f3d6cb9b596e95f7116384506"
-set "PATCHES_SHA=68f72ae49d99323beb33a11b1884e68b3bf73b6dc1f7f2b5bf082ad543bc4ccd"
+set "RESULT=%RUNTIME%\patch-result.json"
+set "MORPHE_DATA_DIR=%RUNTIME%\morphe-data"
+
 set "MORPHE_URL=https://github.com/MorpheApp/morphe-desktop/releases/download/v1.15.0/morphe-desktop-1.15.0-all.jar"
 set "PATCHES_URL=https://github.com/icysymmetra/tiktok-patches-for-morphe/releases/download/v0.7.0/patches-0.7.0.mpp"
+set "JRE_URL=https://api.adoptium.net/v3/binary/latest/21/ga/windows/x64/jre/hotspot/normal/eclipse"
+set "MORPHE_SHA=727e3744aa5c0006474590de6f4041bd55edc59f3d6cb9b596e95f7116384506"
+set "PATCHES_SHA=68f72ae49d99323beb33a11b1884e68b3bf73b6dc1f7f2b5bf082ad543bc4ccd"
 
 cls
 echo ================================================================
-echo                  TikTok Mod v%MOD_VERSION%
-echo                  Target: TikTok %TARGET_VERSION%
+echo                     TikTok Mod v%MOD_VERSION%
+echo                     TikTok %TARGET_VERSION%
 echo ================================================================
 echo.
 
-if not exist "%RUNTIME%" mkdir "%RUNTIME%" >nul 2>nul
-if not exist "%RUNTIME%\morphe-data" mkdir "%RUNTIME%\morphe-data" >nul 2>nul
-set "MORPHE_DATA_DIR=%RUNTIME%\morphe-data"
+where powershell.exe >nul 2>nul
+if errorlevel 1 (
+    echo [ERROR] Windows PowerShell was not found.
+    pause
+    exit /b 1
+)
 
-rem Find the source TikTok APK next to this script.
+if not exist "%RUNTIME%" mkdir "%RUNTIME%" >nul 2>nul
+if not exist "%MORPHE_DATA_DIR%" mkdir "%MORPHE_DATA_DIR%" >nul 2>nul
+
+rem Locate the original APK beside this script.
 set "INPUT="
 if exist "%~dp0tiktok-46-9-42.apk" set "INPUT=%~dp0tiktok-46-9-42.apk"
 if not defined INPUT if exist "%~dp0tiktok-46-9-42-copy.apk" set "INPUT=%~dp0tiktok-46-9-42-copy.apk"
@@ -37,143 +49,162 @@ if not defined INPUT (
 )
 
 if not defined INPUT (
-    echo [ERROR] TikTok APK was not found.
-    echo Put your original TikTok %TARGET_VERSION% APK next to this file.
-    echo Recommended filename: tiktok-46-9-42.apk
+    echo [ERROR] Original TikTok APK was not found.
+    echo.
+    echo Put TikTok %TARGET_VERSION% next to this CMD file and name it:
+    echo     tiktok-46-9-42.apk
     echo.
     pause
     exit /b 2
 )
 
-echo [1/6] Input APK:
-echo       %INPUT%
+echo [1/7] APK: %INPUT%
 echo.
 
-rem Prefer installed Java 21/17. If unavailable, download a private Temurin JRE 21.
-set "JAVA_EXE="
-where java >nul 2>nul
-if not errorlevel 1 (
-    for /f "tokens=3" %%V in ('java -version 2^>^&1 ^| findstr /i "version"') do if not defined JAVA_VER set "JAVA_VER=%%~V"
-    set "JAVA_EXE=java"
-)
-
-if not defined JAVA_EXE (
-    set "LOCAL_JRE=%RUNTIME%\jre21"
-    if not exist "!LOCAL_JRE!\bin\java.exe" (
-        echo [2/6] Java not found. Downloading Temurin JRE 21...
-        powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-          "$ErrorActionPreference='Stop'; $ProgressPreference='SilentlyContinue';" ^
-          "$root=[IO.Path]::GetFullPath('%RUNTIME%'); $zip=Join-Path $root 'jre21.zip'; $unpack=Join-Path $root 'jre21-unpack';" ^
-          "if(Test-Path $unpack){Remove-Item $unpack -Recurse -Force}; New-Item -ItemType Directory -Force -Path $unpack ^| Out-Null;" ^
-          "Invoke-WebRequest -UseBasicParsing -Uri 'https://api.adoptium.net/v3/binary/latest/21/ga/windows/x64/jre/hotspot/normal/eclipse' -OutFile $zip;" ^
-          "Expand-Archive -Path $zip -DestinationPath $unpack -Force;" ^
-          "$dir=Get-ChildItem $unpack -Directory ^| Select-Object -First 1; if(-not $dir){throw 'JRE archive layout is invalid'};" ^
-          "$dst=Join-Path $root 'jre21'; if(Test-Path $dst){Remove-Item $dst -Recurse -Force}; Move-Item $dir.FullName $dst;" ^
-          "Remove-Item $zip -Force; Remove-Item $unpack -Recurse -Force"
-        if errorlevel 1 goto :download_error
-    )
-    set "JAVA_EXE=!LOCAL_JRE!\bin\java.exe"
-) else (
-    echo [2/6] Java found: !JAVA_VER!
-)
-
-if not exist "%MORPHE%" (
-    echo [3/6] Downloading Morphe Desktop 1.15.0...
-    powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop';$ProgressPreference='SilentlyContinue';Invoke-WebRequest -UseBasicParsing -Uri '%MORPHE_URL%' -OutFile '%MORPHE%'"
+rem Always use an isolated Java 21 runtime so an old system Java cannot break Morphe.
+if not exist "%JAVA_EXE%" (
+    echo [2/7] Downloading private Temurin JRE 21...
+    set "JRE_ZIP=%RUNTIME%\jre21.zip"
+    set "JRE_UNPACK=%RUNTIME%\jre21-unpack"
+    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+      "$ErrorActionPreference='Stop';$ProgressPreference='SilentlyContinue';" ^
+      "$zip='%RUNTIME%\jre21.zip';$tmp='%RUNTIME%\jre21-unpack';$dst='%JRE%';" ^
+      "if(Test-Path $tmp){Remove-Item -LiteralPath $tmp -Recurse -Force};" ^
+      "New-Item -ItemType Directory -Path $tmp -Force ^| Out-Null;" ^
+      "Invoke-WebRequest -UseBasicParsing -Uri '%JRE_URL%' -OutFile $zip;" ^
+      "Expand-Archive -LiteralPath $zip -DestinationPath $tmp -Force;" ^
+      "$src=Get-ChildItem -LiteralPath $tmp -Directory ^| Select-Object -First 1;" ^
+      "if(-not $src){throw 'Invalid JRE archive'};" ^
+      "if(Test-Path $dst){Remove-Item -LiteralPath $dst -Recurse -Force};" ^
+      "Move-Item -LiteralPath $src.FullName -Destination $dst;" ^
+      "Remove-Item -LiteralPath $zip -Force;Remove-Item -LiteralPath $tmp -Recurse -Force"
     if errorlevel 1 goto :download_error
 ) else (
-    echo [3/6] Morphe Desktop already cached.
+    echo [2/7] Private Java 21 is ready.
 )
 
-if not exist "%PATCHES%" (
-    echo [4/6] Downloading TikTok patch bundle 0.7.0...
-    powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop';$ProgressPreference='SilentlyContinue';Invoke-WebRequest -UseBasicParsing -Uri '%PATCHES_URL%' -OutFile '%PATCHES%'"
-    if errorlevel 1 goto :download_error
-) else (
-    echo [4/6] Patch bundle already cached.
-)
-
-rem Verify exact upstream release hashes before executing downloaded files.
-for /f "delims=" %%H in ('powershell -NoProfile -Command "(Get-FileHash -Algorithm SHA256 -LiteralPath '%MORPHE%').Hash.ToLowerInvariant()"') do set "MORPHE_ACTUAL=%%H"
-if /I not "!MORPHE_ACTUAL!"=="%MORPHE_SHA%" (
-    echo [ERROR] Morphe SHA-256 mismatch.
-    echo Expected: %MORPHE_SHA%
-    echo Actual:   !MORPHE_ACTUAL!
-    del /q "%MORPHE%" >nul 2>nul
+"%JAVA_EXE%" -version >nul 2>nul
+if errorlevel 1 (
+    echo [ERROR] Java runtime is damaged. Delete "%JRE%" and run again.
     pause
     exit /b 3
 )
 
-for /f "delims=" %%H in ('powershell -NoProfile -Command "(Get-FileHash -Algorithm SHA256 -LiteralPath '%PATCHES%').Hash.ToLowerInvariant()"') do set "PATCHES_ACTUAL=%%H"
-if /I not "!PATCHES_ACTUAL!"=="%PATCHES_SHA%" (
-    echo [ERROR] Patch bundle SHA-256 mismatch.
-    echo Expected: %PATCHES_SHA%
-    echo Actual:   !PATCHES_ACTUAL!
-    del /q "%PATCHES%" >nul 2>nul
+if not exist "%MORPHE%" (
+    echo [3/7] Downloading Morphe Desktop 1.15.0...
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop';$ProgressPreference='SilentlyContinue';Invoke-WebRequest -UseBasicParsing -Uri '%MORPHE_URL%' -OutFile '%MORPHE%'"
+    if errorlevel 1 goto :download_error
+) else (
+    echo [3/7] Morphe Desktop is cached.
+)
+
+if not exist "%PATCHES%" (
+    echo [4/7] Downloading TikTok patches 0.7.0...
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop';$ProgressPreference='SilentlyContinue';Invoke-WebRequest -UseBasicParsing -Uri '%PATCHES_URL%' -OutFile '%PATCHES%'"
+    if errorlevel 1 goto :download_error
+) else (
+    echo [4/7] TikTok patches are cached.
+)
+
+for /f "delims=" %%H in ('powershell -NoProfile -Command "(Get-FileHash -Algorithm SHA256 -LiteralPath '%MORPHE%').Hash.ToLowerInvariant()"') do set "MORPHE_ACTUAL=%%H"
+if /I not "!MORPHE_ACTUAL!"=="%MORPHE_SHA%" (
+    echo [ERROR] Morphe SHA-256 check failed.
+    echo Expected: %MORPHE_SHA%
+    echo Actual:   !MORPHE_ACTUAL!
+    del /q "%MORPHE%" >nul 2>nul
     pause
     exit /b 4
 )
 
-echo [5/6] Downloads verified.
+for /f "delims=" %%H in ('powershell -NoProfile -Command "(Get-FileHash -Algorithm SHA256 -LiteralPath '%PATCHES%').Hash.ToLowerInvariant()"') do set "PATCHES_ACTUAL=%%H"
+if /I not "!PATCHES_ACTUAL!"=="%PATCHES_SHA%" (
+    echo [ERROR] Patch bundle SHA-256 check failed.
+    echo Expected: %PATCHES_SHA%
+    echo Actual:   !PATCHES_ACTUAL!
+    del /q "%PATCHES%" >nul 2>nul
+    pause
+    exit /b 5
+)
+
+echo [5/7] Dependency hashes verified.
+
+rem Validate exact patch names before spending time unpacking the APK.
+set "PATCH_LIST=%RUNTIME%\patch-list.txt"
+"%JAVA_EXE%" -jar "%MORPHE%" list-patches --patches "%PATCHES%" --out "%PATCH_LIST%" >nul 2>nul
+if errorlevel 1 (
+    echo [ERROR] Morphe could not read the patch bundle.
+    pause
+    exit /b 6
+)
+
+echo [6/7] Patch bundle loaded.
 echo.
-echo Selected modifications:
-echo   - Mod settings inside TikTok
-echo   - Feed filter: ads / LIVE / Stories / Shop / photo posts
-echo   - Watermark-free download patch where supported
-echo   - Playback speed + remember speed
-echo   - Seekbar + seek thumbnail
-echo   - Always show publish date
-echo   - Resume video after scrolling
-echo   - Stop automatic looping
-echo   - Sanitize shared links
-echo   - Feed tab navigation controls
-echo   - Hide floating promotions
-echo   - Open external links directly
-echo   - Google login fix after APK re-signing
-echo   - SIM spoof hooks/presets ^(off until configured in settings^)
+echo Enabled TikTok Mod modules:
+echo   * Settings
+echo   * Feed filter ^(ads, LIVE, Stories, Shop, photo posts^)
+echo   * Downloads
+echo   * Playback speed + remembered speed
+echo   * Seekbar + seek thumbnail
+echo   * Always show publish date
+echo   * Remember clear display
+echo   * Resume videos after scrolling
+echo   * Stop video looping
+echo   * Sanitize sharing links
+echo   * Feed tab navigation
+echo   * Hide floating promotions
+echo   * Open external links directly
+echo   * Fix Google login after re-signing
+echo   * SIM spoof controls
 echo.
-echo NOTE: %TARGET_VERSION% is newer than the patch bundle target.
-echo Morphe will FORCE fingerprint matching and CONTINUE if an individual patch changed.
+echo TikTok %TARGET_VERSION% is newer than the patch bundle target 46.2.3.
+echo Morphe will use --force and will continue if one fingerprint no longer matches.
+echo Failed patch details will be written to:
+echo   %RESULT%
 echo.
 
 if exist "%OUTPUT%" del /q "%OUTPUT%" >nul 2>nul
-
-set "PATCH_ARGS=--exclusive --continue-on-error --force"
-set "PATCH_ARGS=!PATCH_ARGS! -e "Settings""
-set "PATCH_ARGS=!PATCH_ARGS! -e "Feed filter""
-set "PATCH_ARGS=!PATCH_ARGS! -e "Downloads""
-set "PATCH_ARGS=!PATCH_ARGS! -e "Playback speed""
-set "PATCH_ARGS=!PATCH_ARGS! -e "Show seekbar""
-set "PATCH_ARGS=!PATCH_ARGS! -e "Show seekbar thumbnail""
-set "PATCH_ARGS=!PATCH_ARGS! -e "Always show publish date""
-set "PATCH_ARGS=!PATCH_ARGS! -e "Remember clear display""
-set "PATCH_ARGS=!PATCH_ARGS! -e "Resume videos after scrolling""
-set "PATCH_ARGS=!PATCH_ARGS! -e "Stop video looping""
-set "PATCH_ARGS=!PATCH_ARGS! -e "Sanitize sharing links""
-set "PATCH_ARGS=!PATCH_ARGS! -e "Feed tab navigation""
-set "PATCH_ARGS=!PATCH_ARGS! -e "Hide floating promotions""
-set "PATCH_ARGS=!PATCH_ARGS! -e "Open external links directly""
-set "PATCH_ARGS=!PATCH_ARGS! -e "Fix Google login""
-set "PATCH_ARGS=!PATCH_ARGS! -e "SIM spoof""
-
-set "RESULT=%RUNTIME%\patch-result.json"
 if exist "%RESULT%" del /q "%RESULT%" >nul 2>nul
 
-echo [6/6] Patching TikTok. This can use several GB of RAM/disk space...
+echo [7/7] Patching and signing TikTok...
 echo.
-"!JAVA_EXE!" -Xms512m -Xmx6144m -jar "%MORPHE%" patch --patches "%PATCHES%" !PATCH_ARGS! --signer "TikTok Mod" --result-file "%RESULT%" -o "%OUTPUT%" "%INPUT%"
+"%JAVA_EXE%" -XX:MaxRAMPercentage=75 -jar "%MORPHE%" patch ^
+  --patches "%PATCHES%" ^
+  --exclusive ^
+  --force ^
+  --continue-on-error ^
+  --bytecode-mode FULL ^
+  -e "Settings" ^
+  -e "Feed filter" ^
+  -e "Downloads" ^
+  -e "Playback speed" ^
+  -e "Show seekbar" ^
+  -e "Show seekbar thumbnail" ^
+  -e "Always show publish date" ^
+  -e "Remember clear display" ^
+  -e "Resume videos after scrolling" ^
+  -e "Stop video looping" ^
+  -e "Sanitize sharing links" ^
+  -e "Feed tab navigation" ^
+  -e "Hide floating promotions" ^
+  -e "Open external links directly" ^
+  -e "Fix Google login" ^
+  -e "SIM spoof" ^
+  --signer "TikTok Mod" ^
+  --result-file "%RESULT%" ^
+  --out "%OUTPUT%" ^
+  "%INPUT%"
 set "PATCH_EXIT=!ERRORLEVEL!"
 
 echo.
 if not exist "%OUTPUT%" (
-    echo [ERROR] Patched APK was not produced. Exit code: !PATCH_EXIT!
-    if exist "%RESULT%" (
-        echo Result report: %RESULT%
-    )
-    echo Morphe logs: %RUNTIME%\morphe-data\logs
+    echo ================================================================
+    echo BUILD FAILED
+    echo ================================================================
+    echo Morphe exit code: !PATCH_EXIT!
+    if exist "%RESULT%" echo Report: %RESULT%
+    echo Logs:   %MORPHE_DATA_DIR%\logs
     echo.
-    echo Because TikTok 46.9.42 changed too many bytecode fingerprints,
-    echo the failed patch names in the report/log are the exact hooks that need porting next.
+    echo The report contains the exact 46.9.42 fingerprints that must be ported.
     pause
     exit /b !PATCH_EXIT!
 )
@@ -182,22 +213,26 @@ for /f "delims=" %%H in ('powershell -NoProfile -Command "(Get-FileHash -Algorit
 for %%S in ("%OUTPUT%") do set "OUTPUT_SIZE=%%~zS"
 
 echo ================================================================
-echo SUCCESS
- echo Output: %~dp0%OUTPUT%
+echo BUILD FINISHED
+echo ================================================================
+echo APK:    %~dp0%OUTPUT%
 echo Size:   !OUTPUT_SIZE! bytes
 echo SHA256: !OUTPUT_SHA!
-echo ================================================================
+echo Report: %RESULT%
 echo.
-echo Keep the folder "%RUNTIME%\morphe-data".
-echo It contains the persistent signing keystore needed to update this mod later.
+echo IMPORTANT: keep this folder for future updates:
+echo   %MORPHE_DATA_DIR%
+echo It contains the signing key. Losing it means a future build cannot update
+ echo an already installed TikTok Mod signed with this key.
+echo ================================================================
 echo.
 pause
 exit /b 0
 
 :download_error
 echo.
-echo [ERROR] Dependency download/setup failed.
-echo Check Internet access and run this file again.
+echo [ERROR] Download failed.
+echo Check your Internet connection and run TikTok-Mod-v0.2.0.cmd again.
 echo.
 pause
-exit /b 5
+exit /b 7

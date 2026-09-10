@@ -1,0 +1,39 @@
+name: TokNova Android Tooling
+
+on:
+  push:
+    branches:
+      - toknova-core-v0.5.0
+    paths:
+      - '.github/workflows/export-android-tools.yml'
+  workflow_dispatch:
+
+jobs:
+  export-tools:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare tools
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p out
+          BT="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n1)"
+          echo "Using build-tools: $BT"
+          cp "$BT/zipalign" out/
+          cp "$BT/aapt2" out/
+          cp "$BT/d8" out/
+          cp "$BT/apksigner" out/
+          cp "$BT/lib/d8.jar" out/ || cp "$BT/lib/r8.jar" out/
+          cp "$BT/lib/apksigner.jar" out/
+          curl -L --fail --retry 3 -o out/apktool.jar https://github.com/iBotPeaches/Apktool/releases/download/v3.0.3/apktool_3.0.3.jar
+          sha256sum out/* > out/SHA256SUMS.txt
+          ls -lh out
+
+      - name: Upload tools
+        uses: actions/upload-artifact@v4
+        with:
+          name: toknova-android-tools
+          path: out/
+          retention-days: 1
